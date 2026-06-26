@@ -8,7 +8,9 @@ add_library(CloverAPI STATIC
         $<$<PLATFORM_ID:Linux>:Utils/System.Linux.cpp>
 )
 
-target_include_directories(CloverAPI PUBLIC ${CMAKE_SOURCE_DIR}/include)
+get_filename_component(CloverNT_API_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../include" ABSOLUTE)
+
+target_include_directories(CloverAPI PUBLIC ${CloverNT_API_INCLUDE_DIR})
 target_compile_definitions(CloverAPI
         PUBLIC
         CloverNT_API_STATIC
@@ -17,6 +19,8 @@ target_compile_definitions(CloverAPI
         ${CloverNT_ARCH_MACRO}
         PRIVATE
         CloverNT_API_EXPORTS
+        $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>
+        $<$<PLATFORM_ID:Windows>:NOMINMAX>
 )
 
 if (NOT WIN32)
