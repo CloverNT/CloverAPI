@@ -9,7 +9,7 @@
 
 namespace CloverNT::Core::Modules {
 class PluginRuntime;
-class JsHost;
+class JsRuntime;
 } // namespace CloverNT::Core::Modules
 
 namespace CloverNT::Plugin {
@@ -36,7 +36,7 @@ private:
 
     friend class PluginManager;
     friend class Core::Modules::PluginRuntime;
-    friend class Core::Modules::JsHost;
+    friend class Core::Modules::JsRuntime;
 };
 
 using JsPluginPtr = std::shared_ptr<JsPlugin>;

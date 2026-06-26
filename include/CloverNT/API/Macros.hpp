@@ -4,10 +4,10 @@
     #define CloverNT_IMPORT __declspec(dllimport)
     #include <Windows.h>
     #ifdef CloverNT_CORE_BUILD
-        #include <Detours/detours.h>
-        #define CloverNT_DETOUR_RESTORE_AFTER_WITH() DetourRestoreAfterWith()
+        #include <Mortis/Inject.hpp>
+        #define CloverNT_RESTORE_AFTER_INJECT() (void) Mortis::ImportTableInjector::RestoreAfterWith()
     #else
-        #define CloverNT_DETOUR_RESTORE_AFTER_WITH() ((void) 0)
+        #define CloverNT_RESTORE_AFTER_INJECT() ((void) 0)
     #endif
 using ModuleHandle = HMODULE;
 
@@ -15,7 +15,7 @@ using ModuleHandle = HMODULE;
         extern "C" BOOL WINAPI DllMain(HINSTANCE hModule, DWORD reason, LPVOID) {                                      \
             switch (reason) {                                                                                          \
             case DLL_PROCESS_ATTACH:                                                                                   \
-                CloverNT_DETOUR_RESTORE_AFTER_WITH();                                                                  \
+                CloverNT_RESTORE_AFTER_INJECT();                                                                       \
                 DisableThreadLibraryCalls(hModule);                                                                    \
                 NAMESPACE::LOAD_FUNC(hModule);                                                                         \
                 break;                                                                                                 \

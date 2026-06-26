@@ -21,14 +21,15 @@ struct TimeWithMs {
     std::uint16_t millisecond{};
 };
 
-[[nodiscard]] CloverNT_API Platform GetCurrentPlatform() noexcept;
+[[nodiscard]] CloverNT_API auto GetCurrentPlatform() noexcept -> Platform;
 
-[[nodiscard]] CloverNT_API std::string_view GetCurrentPlatformName() noexcept;
+[[nodiscard]] CloverNT_API auto GetCurrentPlatformName() noexcept -> std::string_view;
 
-[[nodiscard]] CloverNT_API TimeWithMs GetCurrentTimeWithMs() noexcept;
+[[nodiscard]] CloverNT_API auto GetCurrentTimeWithMs() noexcept -> TimeWithMs;
 
-[[nodiscard]] CloverNT_API std::filesystem::path GetModuleDirectory(ModuleHandle module);
+[[nodiscard]] CloverNT_API auto GetModuleDirectory(ModuleHandle module) -> std::filesystem::path;
 
-[[nodiscard]] CloverNT_API bool IsPathInside(std::filesystem::path const& child, std::filesystem::path const& parent);
+[[nodiscard]] CloverNT_API auto IsPathInside(std::filesystem::path const& child, std::filesystem::path const& parent)
+        -> bool;
 
 } // namespace CloverNT::Utils::System

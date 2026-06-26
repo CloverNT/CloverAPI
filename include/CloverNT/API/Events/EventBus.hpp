@@ -38,8 +38,9 @@ public:
 
     template <std::derived_from<Event> T>
     [[nodiscard]] static auto
-    registerEvent(std::weak_ptr<Plugin::Plugin> owner = Plugin::PluginManager::currentPlugin()) -> Expected<void> {
-        return registerEvent(getEventName<T>(), std::move(owner));
+    registerEvent(const std::weak_ptr<Plugin::Plugin>& owner = Plugin::PluginManager::currentPlugin())
+            -> Expected<void> {
+        return registerEvent(getEventName<T>(), owner);
     }
 
     template <std::derived_from<Event> T>
