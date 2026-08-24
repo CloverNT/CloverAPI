@@ -152,9 +152,9 @@ public:
     Logger(Logger&&)                 = delete;
     Logger& operator=(Logger&&)      = delete;
 
-    [[nodiscard]] std::string title() const;
-    [[nodiscard]] LogLevel    minLevel() const noexcept;
-    [[nodiscard]] bool        shouldLog(LogLevel level) const noexcept;
+    [[nodiscard]] auto title() const -> std::string;
+    [[nodiscard]] auto minLevel() const noexcept -> LogLevel;
+    [[nodiscard]] bool shouldLog(LogLevel level) const noexcept;
 
     void               setTitle(std::string_view title);
     void               setMinLevel(LogLevel level) noexcept;
@@ -165,7 +165,7 @@ public:
     [[nodiscard]] auto addConsumer(std::shared_ptr<LogConsumer> consumer) -> Expected<LogConsumerId>;
     [[nodiscard]] auto removeConsumer(LogConsumerId id) -> Expected<void>;
     void               clearConsumers();
-    [[nodiscard]] std::vector<std::shared_ptr<LogConsumer>> consumers() const;
+    [[nodiscard]] auto consumers() const -> std::vector<std::shared_ptr<LogConsumer>>;
 
     void        flush() const;
     static void flushAll();
@@ -245,8 +245,8 @@ private:
         std::shared_ptr<LogConsumer> consumer;
     };
 
-    LogConsumerId addConsumerLocked(std::shared_ptr<LogConsumer> consumer);
-    void          removeConsumerLocked(LogConsumerId id);
+    auto addConsumerLocked(std::shared_ptr<LogConsumer> consumer) -> LogConsumerId;
+    void removeConsumerLocked(LogConsumerId id);
 
     mutable std::mutex         mMutex;
     std::string                mTitle;
@@ -263,12 +263,12 @@ public:
     LoggerRegistry(LoggerRegistry const&)            = delete;
     LoggerRegistry& operator=(LoggerRegistry const&) = delete;
 
-    static LoggerRegistry& getInstance();
+    static auto getInstance() -> LoggerRegistry&;
 
-    [[nodiscard]] std::shared_ptr<Logger>              getOrCreate(std::string_view title) const;
-    [[nodiscard]] std::shared_ptr<Logger>              tryGet(std::string_view title) const;
-    bool                                               erase(std::string_view title) const;
-    [[nodiscard]] std::vector<std::shared_ptr<Logger>> loggers() const;
+    [[nodiscard]] auto getOrCreate(std::string_view title) const -> std::shared_ptr<Logger>;
+    [[nodiscard]] auto tryGet(std::string_view title) const -> std::shared_ptr<Logger>;
+    auto               erase(std::string_view title) const -> bool;
+    [[nodiscard]] auto loggers() const -> std::vector<std::shared_ptr<Logger>>;
 
 private:
     LoggerRegistry();

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <concepts>
 #include <cstddef>
@@ -125,6 +127,143 @@ private:
     std::vector<SignatureElement> mElements;
 };
 
+using SignatureView = std::span<SignatureElement const>;
+
+namespace Detail {
+
+    template <std::size_t N>
+    struct SignatureString {
+        char value[N + 1]{};
+
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        consteval SignatureString(const char (&str)[N + 1]) {
+            std::copy_n(str, N + 1, value);
+        }
+
+        [[nodiscard]] constexpr auto view() const noexcept -> std::string_view {
+            return {value, N};
+        }
+    };
+    template <std::size_t N>
+    SignatureString(const char (&)[N]) -> SignatureString<N - 1>;
+
+    consteval auto signatureHexDigit(const char c) noexcept -> std::uint8_t {
+        if (c >= '0' && c <= '9') {
+            return static_cast<std::uint8_t>(c - '0');
+        }
+        if (c >= 'A' && c <= 'F') {
+            return static_cast<std::uint8_t>(c - 'A' + 10);
+        }
+        if (c >= 'a' && c <= 'f') {
+            return static_cast<std::uint8_t>(c - 'a' + 10);
+        }
+        return 0xFF; // invalid marker
+    }
+
+    consteval auto signatureTokenCount(const std::string_view pattern) noexcept -> std::size_t {
+        std::size_t count   = 0;
+        bool        inToken = false;
+        for (const char c: pattern) {
+            if (c == ' ') {
+                inToken = false;
+            } else if (!inToken) {
+                inToken = true;
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    template <std::size_t MaxN>
+    consteval auto parseSignatureTokens(const std::string_view pattern)
+            -> std::pair<std::array<SignatureElement, MaxN>, std::size_t> {
+        std::array<SignatureElement, MaxN> result{};
+        std::size_t                        count = 0;
+
+        std::size_t i = 0;
+        while (i < pattern.size()) {
+            if (pattern[i] == ' ') {
+                ++i;
+                continue;
+            }
+            const std::size_t start = i;
+            while (i < pattern.size() && pattern[i] != ' ') {
+                ++i;
+            }
+            const std::size_t len = i - start;
+
+            if (len == 1) {
+                if (pattern[start] != '?') {
+                    throw "signature: single-character token must be '?'";
+                }
+                result[count++] = SignatureElement::wildcard();
+            } else if (len == 2) {
+                const char hi = pattern[start];
+                const char lo = pattern[start + 1];
+                if (hi == '?' && lo == '?') {
+                    result[count++] = SignatureElement::wildcard();
+                } else if (hi == '?') {
+                    const auto loVal = signatureHexDigit(lo);
+                    if (loVal == 0xFF) {
+                        throw "signature: invalid hex digit";
+                    }
+                    result[count++] = {std::byte{loVal}, std::byte{0x0F}};
+                } else if (lo == '?') {
+                    const auto hiVal = signatureHexDigit(hi);
+                    if (hiVal == 0xFF) {
+                        throw "signature: invalid hex digit";
+                    }
+                    result[count++] = {static_cast<std::byte>(hiVal << 4), std::byte{0xF0}};
+                } else {
+                    const auto hiVal = signatureHexDigit(hi);
+                    const auto loVal = signatureHexDigit(lo);
+                    if (hiVal == 0xFF || loVal == 0xFF) {
+                        throw "signature: invalid hex digit";
+                    }
+                    result[count++] = SignatureElement::byte(static_cast<std::byte>((hiVal << 4) | loVal));
+                }
+            } else {
+                throw "signature: token must be 1 or 2 characters";
+            }
+        }
+
+        if (count == 0) {
+            throw "signature: empty pattern";
+        }
+        return {result, count};
+    }
+
+} // namespace Detail
+
+template <Detail::SignatureString Pattern>
+[[nodiscard]] consteval auto compileSignature() {
+    constexpr auto maxN   = Detail::signatureTokenCount(Pattern.view());
+    constexpr auto parsed = Detail::parseSignatureTokens<maxN>(Pattern.view());
+
+    std::array<SignatureElement, parsed.second> out{};
+    for (std::size_t i = 0; i < parsed.second; ++i) {
+        out[i] = parsed.first[i];
+    }
+    return out;
+}
+
+inline namespace literals {
+
+    /// @brief `"48 8B ? CC"_sig` → std::array<SignatureElement, N>.
+    template <Detail::SignatureString Pattern>
+    [[nodiscard]] consteval auto operator""_sig() {
+        return compileSignature<Pattern>();
+    }
+
+    /// @brief `"48 8B ? CC"_sigv` → SignatureView backed by static storage.
+    template <Detail::SignatureString Pattern>
+    [[nodiscard]] constexpr auto operator""_sigv() noexcept -> SignatureView {
+        static constexpr auto storage = compileSignature<Pattern>();
+        return SignatureView{storage};
+    }
+
+} // namespace literals
+
 enum class ScanAlignment : std::uint8_t {
     X1  = 1,
     X16 = 16,
@@ -149,6 +288,19 @@ struct ScanOptions {
     ScanHint      hints{ScanHint::None};
 };
 
+[[nodiscard]] CloverNT_API auto findModule(std::string_view moduleName = {}) -> Expected<Module>;
+[[nodiscard]] CloverNT_API auto enumerateModules() -> std::vector<Module>;
+
+[[nodiscard]] CloverNT_API auto readMemory(void* dest, Address source, std::size_t size) -> Expected<void>;
+[[nodiscard]] CloverNT_API auto writeMemory(Address dest, void const* source, std::size_t size) -> Expected<void>;
+[[nodiscard]] CloverNT_API auto setProtection(Address address, std::size_t size, MemoryProtection protection)
+        -> Expected<MemoryProtection>;
+[[nodiscard]] CloverNT_API auto setProtectionRaw(Address address, std::size_t size, MemoryProtection protection)
+        -> Expected<void>;
+[[nodiscard]] CloverNT_API auto queryProtection(Address address) -> Expected<MemoryProtection>;
+[[nodiscard]] CloverNT_API bool isReadable(Address address, std::size_t size = 1);
+[[nodiscard]] CloverNT_API bool isWritable(Address address, std::size_t size = 1);
+
 class ScanResult {
 public:
     constexpr ScanResult() noexcept = default;
@@ -166,16 +318,28 @@ public:
         return mAddress;
     }
 
+    /// Reads an integral value at @p offset from the scan hit. Returns an error
+    /// instead of dereferencing a null/unreadable address when the scan missed.
     template <std::integral Int>
-    [[nodiscard]] auto read(const std::size_t offset = 0) const noexcept -> Int {
+    [[nodiscard]] auto read(const std::size_t offset = 0) const -> Expected<Int> {
+        if (!hasResult()) {
+            return unexpected(makeMemoryError(ErrorCode::InvalidHandle, "Scan produced no result"));
+        }
         Int value{};
-        std::memcpy(&value, reinterpret_cast<void const*>(mAddress + offset), sizeof(Int));
+        if (auto result = readMemory(&value, mAddress + offset, sizeof(Int)); !result) {
+            return unexpected(result.error());
+        }
         return value;
     }
 
-    [[nodiscard]] auto rel(const std::size_t offset, const std::size_t remaining = 0) const noexcept -> Address {
-        const auto displacement = read<std::int32_t>(offset);
-        return mAddress + offset + sizeof(std::int32_t) + remaining + static_cast<Address>(displacement);
+    /// Resolves a 32-bit relative displacement (e.g. a RIP-relative operand) at
+    /// @p offset into an absolute address, validating the read first.
+    [[nodiscard]] auto rel(const std::size_t offset, const std::size_t remaining = 0) const -> Expected<Address> {
+        auto displacement = read<std::int32_t>(offset);
+        if (!displacement) {
+            return unexpected(displacement.error());
+        }
+        return mAddress + offset + sizeof(std::int32_t) + remaining + static_cast<Address>(*displacement);
     }
 
 private:
@@ -209,19 +373,6 @@ public:
 private:
     ResourceId mId{};
 };
-
-[[nodiscard]] CloverNT_API auto findModule(std::string_view moduleName = {}) -> Expected<Module>;
-[[nodiscard]] CloverNT_API auto enumerateModules() -> std::vector<Module>;
-
-[[nodiscard]] CloverNT_API auto readMemory(void* dest, Address source, std::size_t size) -> Expected<void>;
-[[nodiscard]] CloverNT_API auto writeMemory(Address dest, void const* source, std::size_t size) -> Expected<void>;
-[[nodiscard]] CloverNT_API auto setProtection(Address address, std::size_t size, MemoryProtection protection)
-        -> Expected<MemoryProtection>;
-[[nodiscard]] CloverNT_API auto setProtectionRaw(Address address, std::size_t size, MemoryProtection protection)
-        -> Expected<void>;
-[[nodiscard]] CloverNT_API auto queryProtection(Address address) -> Expected<MemoryProtection>;
-[[nodiscard]] CloverNT_API bool isReadable(Address address, std::size_t size = 1);
-[[nodiscard]] CloverNT_API bool isWritable(Address address, std::size_t size = 1);
 
 template <class T>
     requires std::is_trivially_copyable_v<T>
@@ -268,6 +419,25 @@ findAll(std::string_view moduleName, Signature const& signature, ScanOptions opt
                                                  Signature const& signature,
                                                  ScanOptions      options = {}) -> std::vector<ScanResult>;
 
+// Overloads taking a non-owning SignatureView (e.g. a compile-time `_sigv` /
+// `_sig` pattern). These keep the readable pattern text out of the binary.
+[[nodiscard]] CloverNT_API auto
+findFirst(std::string_view moduleName, SignatureView signature, ScanOptions options = {}) -> ScanResult;
+[[nodiscard]] CloverNT_API auto findFirst(Module const& module, SignatureView signature, ScanOptions options = {})
+        -> ScanResult;
+[[nodiscard]] CloverNT_API auto findAll(std::string_view moduleName, SignatureView signature, ScanOptions options = {})
+        -> std::vector<ScanResult>;
+[[nodiscard]] CloverNT_API auto findAll(Module const& module, SignatureView signature, ScanOptions options = {})
+        -> std::vector<ScanResult>;
+[[nodiscard]] CloverNT_API auto findFirstInSection(std::string_view moduleName,
+                                                   std::string_view sectionName,
+                                                   SignatureView    signature,
+                                                   ScanOptions      options = {}) -> ScanResult;
+[[nodiscard]] CloverNT_API auto findAllInSection(std::string_view moduleName,
+                                                 std::string_view sectionName,
+                                                 SignatureView    signature,
+                                                 ScanOptions      options = {}) -> std::vector<ScanResult>;
+
 [[nodiscard]] CloverNT_API auto createPatch(Address                   address,
                                             std::vector<std::uint8_t> bytes,
                                             const ResourceOptions&    options = {}) -> Expected<PatchHandle>;
@@ -279,6 +449,8 @@ namespace Detail {
     class CloverNT_API ResourcePayload {
     public:
         virtual ~ResourcePayload();
+
+        virtual void quiesce() noexcept {}
     };
 
     [[nodiscard]] CloverNT_API auto createInlineHook(Address                              target,

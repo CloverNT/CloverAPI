@@ -7,21 +7,21 @@
 
 namespace CloverNT::Utils::System {
 
-Platform GetCurrentPlatform() noexcept {
+auto GetCurrentPlatform() noexcept -> Platform {
     return Platform::Linux;
 }
 
-std::string_view GetCurrentPlatformName() noexcept {
+auto GetCurrentPlatformName() noexcept -> std::string_view {
     return "linux";
 }
 
-TimeWithMs GetCurrentTimeWithMs() noexcept {
+auto GetCurrentTimeWithMs() noexcept -> TimeWithMs {
     timespec    now{};
     std::time_t seconds      = 0;
     auto        milliseconds = 0;
 
     if (clock_gettime(CLOCK_REALTIME, &now) == 0) {
-        seconds      = static_cast<std::time_t>(now.tv_sec);
+        seconds      = now.tv_sec;
         milliseconds = static_cast<int>(now.tv_nsec / 1'000'000);
     } else {
         seconds = std::time(nullptr);
@@ -40,7 +40,7 @@ TimeWithMs GetCurrentTimeWithMs() noexcept {
     };
 }
 
-std::filesystem::path GetModuleDirectory(ModuleHandle module) {
+auto GetModuleDirectory(ModuleHandle module) -> std::filesystem::path {
     Dl_info info{};
     auto*   address = module != nullptr ? module : reinterpret_cast<void*>(&GetModuleDirectory);
     if (::dladdr(address, &info) != 0 && info.dli_fname != nullptr) {

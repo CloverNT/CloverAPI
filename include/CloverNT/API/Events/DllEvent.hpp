@@ -4,12 +4,15 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace CloverNT::Event {
 
 class DllLoadEvent final : public Event {
 public:
+    static constexpr std::string_view kEventName = "CloverNT.DllLoadEvent";
+
     DllLoadEvent(std::string baseName, std::string fullPath, void* baseAddress, std::size_t imageSize) noexcept
         : mBaseName(std::move(baseName)),
           mFullPath(std::move(fullPath)),

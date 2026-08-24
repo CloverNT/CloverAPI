@@ -21,4 +21,8 @@ if (NOT DEFINED CloverNT_ARCH_MACRO)
     endif ()
 endif ()
 
-add_subdirectory(src/API)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+add_subdirectory(src/API EXCLUDE_FROM_ALL)
+get_filename_component(CLOVER_CORE_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/include" ABSOLUTE)
+include(clover-core)   # -> Clover::Core (import lib + our headers + system/arch macros)

@@ -58,7 +58,9 @@ public:
         : ListenerBase(priority, std::move(owner)), mCallback(std::move(callback)) {}
 
     void call(Event& event) override {
-        mCallback(static_cast<T&>(event));
+        if (auto* typed = dynamic_cast<T*>(&event); typed != nullptr) {
+            mCallback(*typed);
+        }
     }
 
 private:

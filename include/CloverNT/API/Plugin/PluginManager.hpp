@@ -22,12 +22,14 @@ struct PluginListing {
     bool                   loaded{};
 };
 
+class PluginLoader;
+
 class CloverNT_API PluginManager {
 public:
     PluginManager(PluginManager const&)            = delete;
     PluginManager& operator=(PluginManager const&) = delete;
 
-    static PluginManager& getInstance();
+    static auto getInstance() -> PluginManager&;
 
     [[nodiscard]] static auto getPlugin(std::string_view name) -> std::shared_ptr<Plugin>;
     [[nodiscard]] static auto currentPlugin() -> std::shared_ptr<Plugin>;
@@ -37,6 +39,11 @@ public:
     [[nodiscard]] static auto unloadPlugin(std::string_view name) -> Expected<void>;
     [[nodiscard]] static auto loadPlugin(std::string_view name) -> Expected<void>;
     [[nodiscard]] static auto reloadPlugin(std::string_view name) -> Expected<void>;
+
+    [[nodiscard]] static auto unloadAllPlugins() -> Expected<void>;
+
+    [[nodiscard]] static auto registerLoader(std::shared_ptr<PluginLoader> loader) -> Expected<void>;
+    [[nodiscard]] static auto unregisterLoader(std::string_view id) -> Expected<void>;
 
 private:
     PluginManager();

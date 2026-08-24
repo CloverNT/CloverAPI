@@ -12,11 +12,13 @@
 #include <mutex>
 #include <optional>
 #include <string_view>
+#include <thread>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
 #include <CloverNT/API/Memory/Memory.hpp>
+#include <CloverNT/Obf/Lumen.h>
 
 namespace CloverNT::Memory::Hook {
 
@@ -121,7 +123,11 @@ namespace Detail {
         auto operator()(Args... args) const -> R {
             auto* fn = reinterpret_cast<Pointer>(*mSlot);
             if (fn == nullptr) {
-                std::terminate();
+                if constexpr (std::is_void_v<R>) {
+                    return;
+                } else {
+                    return R{};
+                }
             }
             if constexpr (std::is_void_v<R>) {
                 fn(std::forward<Args>(args)...);
@@ -307,6 +313,8 @@ namespace Detail {
             mSlotIndex = -1;
         }
 
+        void quiesce() noexcept override;
+
         virtual auto invoke(OriginalFunction<R(Args...)>& original, Args... args) -> R = 0;
 
     private:
@@ -369,6 +377,15 @@ namespace Detail {
             mOccupied[index] = false;
         }
 
+        void drain(int index) {
+            if (index < 0 || index >= MaxSlots) {
+                return;
+            }
+            while (mInFlight[index].load(std::memory_order_acquire) != 0) {
+                std::this_thread::yield();
+            }
+        }
+
     private:
         SlotPool() = default;
 
@@ -378,9 +395,9 @@ namespace Detail {
         }
 
         template <int I>
-        static auto trampoline(Args... args) -> R {
+        LUMEN_L3 static auto trampoline(Args... args) -> R {
             auto& pool = instance();
-            pool.mInFlight[I].fetch_add(1, std::memory_order_acquire);
+            pool.mInFlight[I].fetch_add(1, std::memory_order_acq_rel);
             struct InFlightGuard {
                 std::atomic<int>* counter;
                 ~InFlightGuard() {
@@ -390,7 +407,11 @@ namespace Detail {
 
             auto state = pool.state(I);
             if (!state) {
-                std::terminate();
+                if constexpr (std::is_void_v<R>) {
+                    return;
+                } else {
+                    return R{};
+                }
             }
 
             OriginalFunction<R(Args...)> original(state->originalSlot());
@@ -420,6 +441,13 @@ namespace Detail {
         if (mSlotIndex >= 0) {
             SlotPool<R(Args...)>::instance().release(mSlotIndex);
             mSlotIndex = -1;
+        }
+    }
+
+    template <typename R, typename... Args>
+    void HookState<R(Args...)>::quiesce() noexcept {
+        if (mSlotIndex >= 0) {
+            SlotPool<R(Args...)>::instance().drain(mSlotIndex);
         }
     }
 
@@ -553,7 +581,7 @@ namespace Inline {
 
     template <Detail::FunctionSignature Sig, typename Detour>
         requires Detail::DetourCallable<Detour, Sig>
-    [[nodiscard]] auto create(const Address target, Detour&& detour, const Options options = {})
+    LUMEN_MAX LUMEN_VM [[nodiscard]] auto create(const Address target, Detour&& detour, const Options options = {})
             -> Expected<InlineHandle<Sig>> {
         if (target == 0) {
             return unexpected(makeMemoryError(ErrorCode::InvalidArgument, "Inline hook target is null"));

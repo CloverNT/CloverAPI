@@ -1,7 +1,7 @@
 #pragma once
 
+#include <concepts>
 #include <string_view>
-#include <typeinfo>
 
 #include <CloverNT/API/Macros.hpp>
 
@@ -13,8 +13,13 @@ public:
 };
 
 template <class T>
-[[nodiscard]] auto getEventName() noexcept -> std::string_view {
-    return typeid(T).name();
+concept NamedEventType = requires {
+    { T::kEventName } -> std::convertible_to<std::string_view>;
+};
+
+template <NamedEventType T>
+[[nodiscard]] constexpr auto getEventName() noexcept -> std::string_view {
+    return T::kEventName;
 }
 
 } // namespace CloverNT::Event

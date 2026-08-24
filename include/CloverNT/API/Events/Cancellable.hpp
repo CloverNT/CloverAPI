@@ -2,6 +2,8 @@
 
 #include <CloverNT/API/Macros.hpp>
 
+#include <atomic>
+
 namespace CloverNT::Event {
 
 class CloverNT_API Cancellable {
@@ -10,7 +12,7 @@ public:
     void               setCancelled(bool cancelled = true) noexcept;
 
 private:
-    bool mCancelled{false};
+    std::atomic<bool> mCancelled{false};
 };
 
 } // namespace CloverNT::Event

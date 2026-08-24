@@ -1,7 +1,10 @@
 add_library(CloverAPI STATIC
+        Exception.cpp
         Logger.cpp
         Utils/DynamicLibrary.cpp
         Utils/System.cpp
+        $<$<PLATFORM_ID:Windows>:Exception/Exception.Windows.cpp>
+        $<$<PLATFORM_ID:Linux>:Exception/Exception.Linux.cpp>
         $<$<PLATFORM_ID:Windows>:Utils/DynamicLibrary.Windows.cpp>
         $<$<PLATFORM_ID:Linux>:Utils/DynamicLibrary.Linux.cpp>
         $<$<PLATFORM_ID:Windows>:Utils/System.Windows.cpp>
@@ -23,6 +26,13 @@ target_compile_definitions(CloverAPI
         $<$<PLATFORM_ID:Windows>:NOMINMAX>
 )
 
-if (NOT WIN32)
+if (WIN32)
+    target_link_libraries(CloverAPI PUBLIC dbghelp)
+else ()
     target_link_libraries(CloverAPI PUBLIC dl)
 endif ()
+
+set_target_properties(CloverAPI PROPERTIES
+        C_VISIBILITY_PRESET hidden
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON)
