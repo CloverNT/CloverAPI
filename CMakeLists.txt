@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.25)
-project(CloverAPI VERSION 0.0.1 LANGUAGES CXX)
+
+set(_cloverapi_version "0.0.0")
+if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/VERSION")
+    file(READ "${CMAKE_CURRENT_LIST_DIR}/VERSION" _cloverapi_verstr)
+    string(REGEX REPLACE "^[vV]" "" _cloverapi_verstr "${_cloverapi_verstr}")
+    if (_cloverapi_verstr MATCHES "^([0-9]+\\.[0-9]+\\.[0-9]+)")
+        set(_cloverapi_version "${CMAKE_MATCH_1}")
+    endif ()
+endif ()
+project(CloverAPI VERSION ${_cloverapi_version} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
