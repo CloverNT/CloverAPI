@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.25)
+project(CloverAPI VERSION 0.0.1 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if (NOT DEFINED CloverNT_SYSTEM_MACRO)
+    if (WIN32)
+        set(CloverNT_SYSTEM_MACRO CloverNT_SYSTEM_WINDOWS)
+    else ()
+        set(CloverNT_SYSTEM_MACRO CloverNT_SYSTEM_LINUX)
+    endif ()
+endif ()
+if (NOT DEFINED CloverNT_ARCH_MACRO)
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" _cloverapi_arch)
+    if (_cloverapi_arch MATCHES "arm64|aarch64")
+        set(CloverNT_ARCH_MACRO CloverNT_ARCH_ARM64)
+    else ()
+        set(CloverNT_ARCH_MACRO CloverNT_ARCH_X64)
+    endif ()
+endif ()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+add_subdirectory(src/API EXCLUDE_FROM_ALL)
+get_filename_component(CLOVER_CORE_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/include" ABSOLUTE)
+include(CloverCore)   # -> Clover::Core (bundled import lib under lib/ + our headers + macros)
